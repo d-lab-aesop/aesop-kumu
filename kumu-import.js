@@ -1,0 +1,127 @@
+require('dotenv').config()
+const Excel = require("exceljs");
+const Cryptr = require('cryptr');
+const fs = require("fs");
+const jsonDir = './kumu'
+const names = {
+  direction: 'Type', 
+  pos: 'Same', 
+  neg:'Opposite',
+  from: 'From', 
+  to: 'To',
+  label: 'Label'
+}
+
+
+const cleanObject = (obj, regexStr, replacement) => {
+  const regex = new RegExp(regexStr, "gi")
+  const result = JSON.parse(JSON.stringify(obj).replace(regex,replacement));
+  return result
+}
+
+const encrypt = (connectionsArr, colName, envSecret) => {
+  const cryptr = new Cryptr(envSecret, {saltLength: 16});
+  const uniqueVals = [...new Set(connectionsArr.map(el=>el[colName]))]
+  const hashes = uniqueVals.map(x=>cryptr.encrypt(x))
+  const hashMap = Object.fromEntries(uniqueVals.map((k, i) => [k, hashes[i]]))
+  const result = connectionsArr.map(row => {
+      return cleanObject(row, row[colName], hashMap[row[colName]])
+  })
+  return result
+}
+
+
+const parseRow = (rowVals) => {
+  const parsed = rowVals.map((el) =>
+    el.richText ? el.richText[0].text : el.result ? el.result : el
+  );
+  const clean = parsed.map((el) => cleanText(el));
+  return clean;
+};
+const cleanText = (data) => {
+  return typeof data == "string" ? data.replace(/\\n$/, "").trim() : data;
+};
+const readXLSX = async (path, dest) => {
+  const workbook = new Excel.Workbook();
+  await workbook.xlsx.readFile(path);
+  const result = {};
+  workbook.eachSheet(function (worksheet, sheetId) {
+    let arr = [];
+    const sheetName = worksheet.name;
+    const rowCount = worksheet.rowCount;
+    const colCount = worksheet.columnCount;
+    const rowRange = Array.from({ length: rowCount }, (_, n) => n + 1);
+    let indexCol = worksheet.getColumn(colCount + 1);
+    indexCol.values = rowRange;
+    worksheet.eachRow({ includeEmpty: false }, function (row, rowNumber) {
+      arr.push(parseRow(row.values));
+    });
+    result[sheetName] = arr;
+  });
+  return result;
+};
+
+const getFrequency = (connectionsArr) => {
+  result = structuredClone(connectionsArr)
+  result.forEach(row => {
+    const linkStr = row[names.direction] == names.pos ? ' ++ ' : row[names.direction] == names.neg ? ' -- ' : ' ?? '
+    row['connection'] = row[names.from]+linkStr+row[names.to]
+  })
+  const uniqueConnections = [...new Set(result.map(el=>el.connection))]
+  const frequencies = uniqueConnections.map(x=>result.filter(y=>y['connection']==x).length)
+  const frequencyMap = Object.fromEntries(uniqueConnections.map((k, i) => [k, frequencies[i]]))
+  result.forEach(row => {
+    row['frequency'] = frequencyMap[row['connection']]
+  })
+  console.log(`${uniqueConnections.length} of ${result.length} connections are unique; highest frequency is ${Math.max(...frequencies)}`);
+  return result
+}
+
+const lowerCaseProps = (objArr) => {
+  return objArr.map(obj => Object.keys(obj).reduce((acc, k) => ({ ...acc, [k.toLowerCase()]: obj[k] }), {}))
+}
+const makeRow = (arr, header, subheader) => {
+  const kv = arr.map((v,i)=>header[i]=='Tags'?[subheader[i],v]:[header[i],v])
+  const tagsArr = arr.filter((v, i)=>header[i]=='Tags')
+  const tagsPipe = tagsArr.reduce((acc,curr)=>acc ? acc+'|'+curr : curr,'')
+  kv.push(['tagsArr',tagsArr])
+  kv.push(['tags',tagsPipe])
+  return Object.fromEntries(kv.filter((e)=>e));
+}
+
+const convert = (data, mergeConnections=true, encryptSubjects=true) => {
+  const result = {}
+  const analysisRaw = data.Analysis;
+  const elementsRaw = data.Elements;
+  const analysisSubheader = analysisRaw.shift();
+  const analysisHeader = analysisRaw
+    .shift()
+    .map((e) => (typeof e == "string" ? e.replace(/Tag$/, "Tags") : e))
+    .map((e) => (typeof e == "string" ? e.replace(/Types$/, "Type") : e))
+  const elementsSubheader = elementsRaw.shift()
+  const elementsHeader = elementsRaw.shift()
+  for (const header of [analysisHeader,analysisSubheader,elementsHeader,elementsSubheader]){
+    header.splice(-1, 1, "index")
+  }
+  const elements = elementsRaw.map(el=>makeRow(el, elementsHeader,elementsSubheader)).filter(el=>el[names.label]).map(({ tagsArr, ...item }) => item)
+  let connections = analysisRaw.map(el=>makeRow(el, analysisHeader,analysisSubheader)).filter(el=>el[names.from]&&el[names.to]&&el[names.direction]).map(({ tagsArr, ...item }) => item)
+  if (mergeConnections) {
+    connections = getFrequency(connections)
+  }
+  if (encryptSubjects) {
+    connections = encrypt(connections, 'Subject Code', process.env.SUBJECT_SECRET)
+  }
+  result['elements'] = lowerCaseProps(elements)
+  result['connections'] = lowerCaseProps(connections)
+  return result
+};
+const run = async (path) => {
+  const sourceName = path.split('/').slice(-1)[0].split('.')[0].replace(' ','_')
+  const timeStamp = new Date().toISOString().split(':').slice(0,-1).join(':')
+  const dest = `${jsonDir}/${sourceName}_${timeStamp}.json`
+  const data = convert(await readXLSX(path, dest));
+  fs.writeFileSync(dest, JSON.stringify(data), 'utf8');
+  fs.copyFileSync(dest, `${jsonDir}/latest.json`)
+};
+
+run("/Users/l/Desktop/TBC-2-21-inclMP.xlsx")
