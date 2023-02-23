@@ -3,10 +3,8 @@ const DataFrame = require('dataframe-js').DataFrame;
 const Excel = require("exceljs");
 const Cryptr = require('cryptr');
 const fs = require("fs");
-
 const jsonDir = './kumu'
 const varDir = '/reconciliation'
-
 const names = {
   direction: 'Type', 
   pos: 'Same', 
