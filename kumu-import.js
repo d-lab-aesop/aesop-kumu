@@ -1,5 +1,8 @@
 require('dotenv').config()
-const DataFrame = require('dataframe-js').DataFrame;
+// const DataFrame = require('dataframe-js').DataFrame;
+const dj = require("danfojs-node")
+
+
 const Excel = require("exceljs");
 const Cryptr = require('cryptr');
 const fs = require("fs");
@@ -13,9 +16,19 @@ const names = {
   to: 'To',
   label: 'Label'
 }
+const importElements = async () => {
+  const elementsWHPfeb28 = [];
+  fs.createReadStream(`/Users/l/Downloads/elements.csv`).pipe(csvParser()).on("data", (data) => {
+  elementsWHPfeb28.push(data)}).on("end", () => {
+    let dfWHP = new DataFrame(dataTBC, Object.keys(dataTBC[0]))
+    return dfWHP
+});
+
+}
+// const dfWHP = importElements()
 
 
-const show = (data, numRows=20, maxWidth=20, padding=1, title='DataFrame') => {
+const show = (data, numRows=21, maxWidth=10, padding=1, title='DataFrame') => {
   const toShow = []
   const dict = data.toDict()
   const isDf = Object.values(dict).every(v => typeof v == 'object')
@@ -38,23 +51,23 @@ const show = (data, numRows=20, maxWidth=20, padding=1, title='DataFrame') => {
 }
 // importFromAESOPTemplate("/Users/l/Desktop/TBC-2-21-inclMP.xlsx")
 // variable reconciliation
-const dfHK = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfHK.json` ).then(df => df);
-const dfTBC = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfTBC.json` ).then(df => df);
-const dfLitRels = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitRels.json` ).then(df => df);
-const dfLitVars = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitVars.json` ).then(df => df);
-const dfLitUniques = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitUniques.json` ).then(df => df);
-Promise.all([dfHK,dfTBC,dfLitRels,dfLitVars,dfLitUniques]).then(([dfHK,dfTBC,dfLitRels,dfLitVars,dfLitUniques])=>{
-  // const uniqueVars = dfLitVars.distinct('Label')
-  // const news = dfLitUniques.select('Label')
-  // show(uniqueVars.diff(news, 'Label'))
+// const dfHK = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfHK.json` ).then(df => df);
+// const dfTBC = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfTBC.json` ).then(df => df);
+// const dfLitRels = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitRels.json` ).then(df => df);
+// const dfLitVars = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitVars.json` ).then(df => df);
+// const dfLitUniques = DataFrame.fromJSON(`${process.env.WD}/${varDir}/dfLitUniques.json` ).then(df => df);
+// Promise.all([dfHK,dfTBC,dfLitRels,dfLitVars,dfLitUniques]).then(([dfHK,dfTBC,dfLitRels,dfLitVars,dfLitUniques])=>{
+//   // const uniqueVars = dfLitVars.distinct('Label')
+//   // const news = dfLitUniques.select('Label')
+//   // show(uniqueVars.diff(news, 'Label'))
 
-  // 1. merge hk vars into TBC
-  // show(dfHK)
-  // show(dfTBC)
-  show(dfHK.find({'name': 'Ability to help others study remotely'}))
-  show(dfHK)
-}
-)
+//   // 1. merge hk vars into TBC
+//   // show(dfHK)
+//   // show(dfTBC)
+//   show(dfHK.find({'name': 'Ability to help others study remotely'}))
+//   show(dfHK)
+// }
+// )
 
 
 
@@ -190,3 +203,36 @@ const importFromAESOPTemplate = async (path) => {
 // }
 
 
+
+const updateMTS = async () => {
+      const data = await readXLSX(`TBC_CC_Master Transcript Data_V2 - Copy (Use this)_local.xlsx`)
+      // const dataHKcropped =   dataHK.variables.slice(0,689)
+      const header = data.Analysis[0]
+      console.log(header);
+      const analysis = data.Analysis.slice(2,)
+      const df = new dj.DataFrame(analysis)
+      df.print()
+      // df.toJSON(true,`latest.json` )
+      // let hasConnections = df.loc(df['Link'])
+      // hasConnections.show()
+      // const dataLit = await readXLSX(`${varDir}/Copy of AESOP_12_articles.xlsx`)
+      // const dataLitVars =   dataLit.variables.slice(0,404)
+      // const dataLitRels =   dataLit.relationships.slice(0,506)
+      // const dataLitUniques =   dataLit['Unique variables'].slice(0,280)
+      // const dataLitheaderVars = dataLitVars.shift()
+      // const dataLitheaderRels = dataLitRels.shift()
+      // const dataLitheaderUniques = dataLitUniques.shift()
+      // const dfLitVars = new DataFrame(dataLitVars, dataLitheaderVars)
+      // const dfLitRels = new DataFrame(dataLitRels, dataLitheaderRels)
+      // const dfLitUniques = new DataFrame(dataLitUniques, dataLitheaderUniques)
+      // dfLitVars.toJSON(true,`${varDir}/dfLitVars.json` )
+      // dfLitRels.toJSON(true,`${varDir}/dfLitRels.json` )
+      // dfLitUniques.toJSON(true,`${varDir}/dfLitUniques.json` )
+      // const dataTBC = [];
+      //      fs.createReadStream(`${varDir}/Variables-Export for India 10_10 (1).csv`).pipe(csvParser()).on("data", (data) => {
+      //      dataTBC.push(data)}).on("end", () => {
+      //         dfTBC = new DataFrame(dataTBC, Object.keys(dataTBC[0]))
+      //         dfTBC.toJSON(true,`${varDir}/dfTBC.json` )
+      //     });
+  }
+updateMTS()

@@ -2,6 +2,9 @@
   "dependencies": {
     "cryptr": "^6.1.0",
     "csv-parser": "^3.0.0",
+    "csvtojson": "^2.0.10",
+    "danfojs": "^1.1.2",
+    "danfojs-node": "^1.1.2",
     "dataframe-js": "^1.4.4",
     "dotenv": "^16.0.3",
     "exceljs": "^4.3.0"
